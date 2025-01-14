@@ -20,7 +20,7 @@ jobs:
       if: env.REMOVE_UNUSED_PACKAGES == 'true'
       uses: jlumbroso/free-disk-space@main
       with:
-        tool-cache: true
+        tool-cache: ture
         android: false
         dotnet: true
         haskell: true
@@ -215,10 +215,7 @@ jobs:
                 sed -i 's/CONFIG_KALLSYMS_BASE_RELATIVE=n/CONFIG_KALLSYMS_BASE_RELATIVE=y/g' arch/${{ env.KERNEL_ARCH }}/configs/${{ env.KERNEL_CONFIG }}
                 echo "CONFIG_KALLSYMS_BASE_RELATIVE=y" >> arch/${{ env.KERNEL_ARCH }}/configs/${{ env.KERNEL_CONFIG }}
                 if [ ${{ env.FIX_APATCH_OPENELA }} = true ]; then
-                    git apply $GITHUB_WORKSPACE/patches/FIX_APATCH_OPENELA.patch || {
-                    git apply $GITHUB_WORKSPACE/patches/REVERT_ADD_GET_CRED_RCU.patch
                     git apply $GITHUB_WORKSPACE/patches/FIX_APATCH_OPENELA.patch
-                    }
                 fi
         fi
         if [ ${{ env.DISABLE_LTO }} = true ]; then
@@ -238,12 +235,6 @@ jobs:
             else
                 echo "CONFIG_MMC_CRYPTO_LEGACY=y" >> arch/${{ env.KERNEL_ARCH }}/configs/${{ env.KERNEL_CONFIG }}
             fi
-        fi
-        if [ ${{ env.FIX_WIFI_SPEED }} = true ]; then
-            rm -rf drivers/misc/mediatek/connectivity
-            cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel/drivers/misc/mediatek
-            git clone https://github.com/Jbub5/connectivity.git --depth=1
-            cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         fi
 
     - name: Setup ccache
@@ -309,7 +300,23 @@ jobs:
       if: env.CHECK_FILE_IS_OK == 'true' && env.USE_CUSTOM_ANYKERNEL3 != 'true'
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone https://github.com/osm0sis/AnyKernel3 --depth=1 AnyKernel3
+
+
+
+        if [[ https://github.com/Jbub5/AnyKernel3 == *'.git' ]]; then
+           git clone https://github.com/Jbub5/AnyKernel3 -b proton --depth=1 AnyKernel3
+        else
+           wget -nv --tries=3 --timeout=30 -O AnyKernel3.zip https://github.com/Jbub5/AnyKernel3/archive/refs/heads/proton.zip
+           if [ $? -ne 0 ] || [ ! -s AnyKernel3.zip ]; then
+               echo "Failed to download AnyKernel3.zip or the file is empty!"
+               exit 1
+           fi
+           mkdir AnyKernel3
+           unzip AnyKernel3.zip -d AnyKernel3/
+        fi
+
+
+
         sed -i 's/do.devicecheck=1/do.devicecheck=0/g' AnyKernel3/anykernel.sh
         sed -i 's!BLOCK=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;!BLOCK=auto;!g' AnyKernel3/anykernel.sh
         sed -i 's/IS_SLOT_DEVICE=0;/is_slot_device=auto;/g' AnyKernel3/anykernel.sh
